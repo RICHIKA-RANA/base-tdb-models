@@ -101,8 +101,10 @@ class JobModel(BaseModel):
             int:
                 Rounded completion percentage in range [0, 100].
         """
+        if self.state == JobState.COMPLETED:
+            return 100
         if self.total_units <= 0:
-            return None
+            return 0
         ratio = self.done_units / self.total_units
         return max(0, min(100, round(ratio * 100)))
 
@@ -117,12 +119,12 @@ class JobModel(BaseModel):
             "job_id": self.job_id,
             "job_type": self.job_type.value,
             "state": self.state.value,
-            "stage": None if self.is_terminal() else (
-                self.stage.value if self.stage else None
-            ),
-            "percent": self.percent(),
+            "stage": self.stage.value if self.stage else None,
+            "progress": self.percent(),
             "status_message": self.status_message,
             "result_graph_id": self.result_graph_id,
+            "file_name": self.filename,
+            "file_size": self.file_size_bytes,
             "result_summary": self.result_summary,
             "error_code": self.error_code.value if self.error_code else None,
             "error_message": self.error_message,
