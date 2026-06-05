@@ -17,4 +17,3 @@ class JobStage(str, Enum):
     TREE_GENERATION = "TREE_GENERATION"
     INDEXING = "INDEXING"
     PERSISTING = "PERSISTING"
-    DONE = "DONE"

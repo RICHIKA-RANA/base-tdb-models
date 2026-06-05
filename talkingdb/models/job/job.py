@@ -103,6 +103,8 @@ class JobModel(BaseModel):
         """
         if self.state == JobState.COMPLETED:
             return 100
+        if self.state in (JobState.CANCELLING, JobState.CANCELLED):
+            return 0
         if self.total_units <= 0:
             return 0
         ratio = self.done_units / self.total_units
