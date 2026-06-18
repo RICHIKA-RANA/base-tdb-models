@@ -34,6 +34,8 @@ class JobModel(BaseModel):
     job_id: str
     job_type: JobType
 
+    session_id: Optional[str] = None
+
     state: JobState = JobState.QUEUED
     stage: Optional[JobStage] = None
 
@@ -75,14 +77,16 @@ class JobModel(BaseModel):
         *,
         job_type: JobType,
         filename: Optional[str] = None,
+        session_id: Optional[str] = None,
     ) -> "JobModel":
         """Create a new queued job for the given job_type."""
         now = _now_iso()
         return cls(
             job_id=cls.make_id(),
             job_type=job_type,
-            state=JobState.QUEUED,
+            session_id=session_id,
             filename=filename,
+            state=JobState.QUEUED,
             created_at=now,
             updated_at=now,
         )
@@ -120,6 +124,7 @@ class JobModel(BaseModel):
         return {
             "job_id": self.job_id,
             "job_type": self.job_type.value,
+            "session_id": self.session_id,
             "state": self.state.value,
             "stage": self.stage.value if self.stage else None,
             "progress": self.percent(),
