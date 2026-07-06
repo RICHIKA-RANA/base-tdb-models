@@ -26,10 +26,10 @@ def _now_iso() -> str:
 # let these numbers go stale forever.
 _STAGE_WEIGHTS: Dict[JobStage, int] = {
     JobStage.VALIDATING: 2,
-    JobStage.PARSING: 55,
+    JobStage.PARSING: 15,
     JobStage.ELEMENT_EXTRACTION: 3,
-    JobStage.TREE_GENERATION: 10,
-    JobStage.INDEXING: 25,
+    JobStage.TREE_GENERATION: 5,
+    JobStage.INDEXING: 70,
     JobStage.PERSISTING: 5,
 }
 
