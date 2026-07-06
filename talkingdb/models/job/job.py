@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -13,6 +13,46 @@ from talkingdb.models.job.type import JobType
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+# ---------------------------------------------------------------- progress
+# Each stage owns a slice of the 0-100 range, sized to its typical share of
+# total job wall-clock time. This turns progress into a staircase that moves
+# forward on every stage transition, instead of sitting at 0 until the one
+# stage that happens to report unit-level progress (INDEXING) takes over.
+#
+# These are heuristic defaults. Revisit once real stage-duration data is
+# collected from job_observability logs (grouped by file size/type) - don't
+# let these numbers go stale forever.
+_STAGE_WEIGHTS: Dict[JobStage, int] = {
+    JobStage.VALIDATING: 2,
+    JobStage.PARSING: 55,
+    JobStage.ELEMENT_EXTRACTION: 3,
+    JobStage.TREE_GENERATION: 10,
+    JobStage.INDEXING: 25,
+    JobStage.PERSISTING: 5,
+}
+
+
+def _build_stage_progress(
+    weights: Dict[JobStage, int],
+) -> Dict[JobStage, Tuple[int, int]]:
+    """Precompute each stage's (starting_floor, weight).
+
+    Relies on ``JobStage``'s declaration order matching pipeline execution
+    order (VALIDATING -> PARSING -> ELEMENT_EXTRACTION -> TREE_GENERATION ->
+    INDEXING -> PERSISTING), so the floors accumulate correctly.
+    """
+    progress: Dict[JobStage, Tuple[int, int]] = {}
+    running = 0
+    for stage in JobStage:
+        weight = weights.get(stage, 0)
+        progress[stage] = (running, weight)
+        running += weight
+    return progress
+
+
+_STAGE_PROGRESS = _build_stage_progress(_STAGE_WEIGHTS)
 
 
 class JobModel(BaseModel):
@@ -112,20 +152,36 @@ class JobModel(BaseModel):
     def percent(self) -> int:
         """Return completion percentage for UI display.
 
+        Progress is stage-weighted: each ``JobStage`` owns a fixed slice of
+        the 0-100 range (see ``_STAGE_WEIGHTS``). Within the current stage,
+        ``done_units``/``total_units`` (when known) advance the value
+        smoothly across that stage's slice. Stages that don't report units
+        (e.g. PARSING today) simply sit at their starting floor until the
+        job moves to the next stage - still a forward step on every
+        transition, rather than a flat 0 for the entire stage.
+
         Returns:
             int:
-                0 when total_units is unknown or job is not yet processing.
-                1-99 during active indexing.
+                0 when the job hasn't started or has no stage yet.
+                Monotonically increasing through the stage floors while
+                ONGOING.
                 100 when job is COMPLETED.
+                0 when CANCELLING/CANCELLED.
         """
         if self.state == JobState.COMPLETED:
             return 100
         if self.state in (JobState.CANCELLING, JobState.CANCELLED):
             return 0
-        if self.total_units <= 0:
+        if self.stage is None:
             return 0
-        ratio = self.done_units / self.total_units
-        return max(0, min(100, round(ratio * 100)))
+
+        floor, weight = _STAGE_PROGRESS.get(self.stage, (0, 0))
+
+        local_ratio = 0.0
+        if self.total_units > 0:
+            local_ratio = max(0.0, min(1.0, self.done_units / self.total_units))
+
+        return max(0, min(100, round(floor + weight * local_ratio)))
 
     def to_status_payload(self) -> Dict[str, Any]:
         """The STABLE API contract surface.
