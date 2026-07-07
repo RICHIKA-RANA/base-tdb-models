@@ -117,6 +117,7 @@ class ParagraphModel:
     is_list: Optional[bool] = False
     list_type: Optional[str] = None
     list_level: Optional[int] = 0
+    page: Optional[int]=None
 
     @classmethod
     def from_dict(cls, data: dict) -> "ParagraphModel":

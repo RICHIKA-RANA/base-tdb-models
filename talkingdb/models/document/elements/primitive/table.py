@@ -128,6 +128,7 @@ class TableModel:
 
     parent_ref_id: Optional[str] = None
     caption_ref_id: Optional[str] = None
+    page: Optional[int] = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "TableModel":
