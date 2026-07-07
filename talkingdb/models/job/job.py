@@ -18,16 +18,9 @@ def _now_iso() -> str:
 
 # ---------------------------------------------------------------- progress
 # Each stage owns a slice of the 0-100 range, sized to its typical share of
-# total job wall-clock time. This turns progress into a staircase that moves
-# forward on every stage transition, instead of sitting at 0 until the one
-# stage that happens to report unit-level progress (INDEXING) takes over.
-#
-# These are heuristic defaults. Revisit once real stage-duration data is
-# collected from job_observability logs (grouped by file size/type) - don't
-# let these numbers go stale forever.
 
 validating = random.randint(0, 3)
-parsing = random.randint(5, 9)
+parsing = random.randint(15, 19)
 element_extraction = random.randint(1, 3)
 tree_generation = random.randint(3, 7)
 persisting = random.randint(3, 7)
@@ -166,20 +159,12 @@ class JobModel(BaseModel):
 
     def percent(self) -> int:
         """Return completion percentage for UI display.
-
         Progress is stage-weighted: each ``JobStage`` owns a fixed slice of
-        the 0-100 range (see ``_STAGE_WEIGHTS``). Within the current stage,
-        ``done_units``/``total_units`` (when known) advance the value
-        smoothly across that stage's slice. Stages that don't report units
-        (e.g. PARSING today) simply sit at their starting floor until the
-        job moves to the next stage - still a forward step on every
-        transition, rather than a flat 0 for the entire stage.
-
+        the 0-100 range
         Returns:
             int:
                 0 when the job hasn't started or has no stage yet.
-                Monotonically increasing through the stage floors while
-                ONGOING.
+                1-99 during active indexing.
                 100 when job is COMPLETED.
                 0 when CANCELLING/CANCELLED.
         """
