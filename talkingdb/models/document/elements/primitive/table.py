@@ -45,6 +45,49 @@ class _HTMLTableParser(HTMLParser):
             self._current_row = None
 
 
+HEADER_NONE = "none"
+HEADER_ROW = "row"
+HEADER_COLUMN = "column"
+HEADER_BOTH = "both"
+
+
+def cell_to_text(cell: Optional["TableCellModel"]) -> str:
+    if cell is None:
+        return ""
+    return (cell.to_text() or "").strip()
+
+
+@dataclass
+class TableCellView:
+    row: int
+    col: int
+    text: str
+    row_header: str = ""
+    col_header: str = ""
+    id: Optional[str] = None
+
+
+@dataclass
+class TableRowView:
+    index: int
+    header: str
+    cells: List[TableCellView] = field(default_factory=list)
+
+    def to_text(self) -> str:
+        """Return self-contained table rows."""
+        parts = [
+            f"{c.col_header}: {c.text}"
+            if c.col_header and c.col_header != self.header
+            else c.text
+            for c in self.cells
+        ]
+
+        if self.header and parts:
+            return f"{self.header} | " + " | ".join(parts)
+
+        return self.header or " | ".join(parts)
+
+
 @dataclass
 class TableCellModel:
     paragraphs: List[ParagraphModel] = field(default_factory=list)
@@ -333,6 +376,81 @@ class TableModel:
         if self.get_type() == "Keyvalue":
             return self.get_row_header(row, format, mode)
         return self.get_col_header(col, format, mode)
+
+    def header_orientation(self) -> str:
+        table_type = self.get_type()
+
+        if table_type == "Layout":
+            return HEADER_NONE
+        if table_type == "Keyvalue":
+            return HEADER_ROW
+        return HEADER_BOTH
+
+    def header_row_count(self) -> int:
+        if not self.rows or not self.rows[0]:
+            return 1
+        return max((cell.rowspan for cell in self.rows[0] if cell), default=1)
+
+    def column_headers(self) -> dict:
+        headers: dict = {}
+
+        for row in self.rows[: self.header_row_count()]:
+            for col, cell in enumerate(row):
+                text = cell_to_text(cell)
+                if not text:
+                    continue
+                headers[col] = (
+                    f"{headers[col]} {text}".strip() if col in headers else text
+                )
+
+        return headers
+
+    def row_headers(self) -> dict:
+        return {
+            row_idx: cell_to_text(row[0])
+            for row_idx, row in enumerate(self.rows)
+            if row
+        }
+
+    def normalized_rows(self) -> List[TableRowView]:
+        if not self.rows:
+            return []
+
+        orientation = self.header_orientation()
+        has_row_header = orientation in (HEADER_ROW, HEADER_BOTH)
+        has_col_header = orientation in (HEADER_COLUMN, HEADER_BOTH)
+
+        header_count = self.header_row_count() if has_col_header else 0
+        col_headers = self.column_headers() if has_col_header else {}
+        first_col = 1 if has_row_header else 0
+
+        views: List[TableRowView] = []
+
+        for row_idx, row in enumerate(self.rows):
+            if not row or row_idx < header_count:
+                continue
+
+            row_header = cell_to_text(row[0]) if has_row_header else ""
+
+            cells = [
+                TableCellView(
+                    row=row_idx,
+                    col=col,
+                    text=cell_to_text(cell),
+                    row_header=row_header,
+                    col_header=col_headers.get(col, ""),
+                    id=getattr(cell, "id", None),
+                )
+                for col, cell in enumerate(row)
+                if col >= first_col and cell_to_text(cell)
+            ]
+
+            if row_header or cells:
+                views.append(
+                    TableRowView(index=row_idx, header=row_header, cells=cells)
+                )
+
+        return views
 
     @staticmethod
     def from_html_or_text(content: str) -> "TableModel":

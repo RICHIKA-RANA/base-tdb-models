@@ -3,6 +3,7 @@
 import re
 import hashlib
 import zipfile
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from smart_slugify import slugify
@@ -25,6 +26,49 @@ def get_doc_uid(id: str) -> str:
     match = re.match(r'^doc::([^:]+)', id)
     return match.group(1)
 
+TABLE_LEAD_IN_MAX_PARAGRAPHS = 5
+TABLE_LEAD_IN_MAX_CHARS = 300
+
+TABLE_LEAD_IN_STOPWORDS = frozenset({
+    "table of contents",
+    "list of tables",
+    "list of figures",
+})
+
+
+def _is_lead_in(text: str) -> bool:
+    if not text:
+        return False
+
+    normalized = " ".join(text.split())
+    if len(normalized) < 4:
+        return False
+
+    lowered = normalized.lower()
+
+    if lowered.replace("f", "").replace("-", "").replace(" ", "").isdigit():
+        return False
+
+    if lowered.rstrip("0123456789 .-") in TABLE_LEAD_IN_STOPWORDS:
+        return False
+
+    return True
+
+
+def _bounded_lead_in(paragraphs) -> str:
+    selected = []
+    total = 0
+
+    for text in reversed(paragraphs):
+        if total >= TABLE_LEAD_IN_MAX_CHARS:
+            break
+        snippet = text[: TABLE_LEAD_IN_MAX_CHARS - total]
+        selected.append(snippet)
+        total += len(snippet)
+
+    selected.reverse()
+    return " ".join(selected)
+
 
 @dataclass
 class DocumentModel:
@@ -39,6 +83,8 @@ class DocumentModel:
         default_factory=dict, init=False, repr=False)
     _paragraph_order: List[str] = field(
         default_factory=list, init=False, repr=False)
+    _lead_in_index: Dict[str, str] = field(
+        default_factory=dict, init=False, repr=False)
 
     @staticmethod
     def make_id(doc_uid: str) -> str:
@@ -224,6 +270,7 @@ class DocumentModel:
 
     def invalidate_index(self):
         self._element_index.clear()
+        self._lead_in_index.clear()
 
     def assign_ids(self, doc_index: int = 0):
         self.id = f"doc::{doc_index}"
@@ -614,6 +661,41 @@ class DocumentModel:
                 break
 
         return path
+
+    def get_table_context(self, table: TableModel) -> List[str]:
+        context = self._get_heading_path(table)
+
+        if table.caption_ref_id:
+            caption = self.get_element_by_id(table.caption_ref_id)
+            if caption:
+                text = (caption.to_text() or "").strip()
+                if text:
+                    context.append(text)
+
+        lead_in = self._build_lead_in_index().get(table.id)
+        if lead_in:
+            context.append(lead_in)
+
+        return context
+
+    def _build_lead_in_index(self) -> Dict[str, str]:
+        if self._lead_in_index:
+            return self._lead_in_index
+
+        recent: deque = deque(maxlen=TABLE_LEAD_IN_MAX_PARAGRAPHS)
+
+        for elem in self.iter_elements():
+            if isinstance(elem, TableModel):
+                if recent:
+                    self._lead_in_index[elem.id] = _bounded_lead_in(recent)
+                continue
+
+            if isinstance(elem, ParagraphModel):
+                text = (elem.to_text() or "").strip()
+                if _is_lead_in(text):
+                    recent.append(text)
+
+        return self._lead_in_index
 
     def _get_heading_path_for_heading(self, heading: ParagraphModel) -> List[str]:
         path = self._get_heading_path(heading)
