@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 
 class FileGraphMappingModel(BaseModel):
-    rc: str
+    channel: str
     file_hash: str
     graph_id: Optional[str] = None
     job_id: str
