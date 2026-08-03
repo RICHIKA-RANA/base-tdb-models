@@ -71,6 +71,10 @@ class JobModel(BaseModel):
     session_id: Optional[str] = None
 
     namespace: Optional[str] = None
+
+    owner_email: Optional[str] = None
+    project_id: Optional[str] = None
+
     title: Optional[str] = None
     description: Optional[str] = None
     suggested_queries: Optional[List[str]] = None
@@ -119,6 +123,8 @@ class JobModel(BaseModel):
         filename: Optional[str] = None,
         session_id: Optional[str] = None,
         namespace: Optional[str] = None,
+        owner_email: Optional[str] = None,
+        project_id: Optional[str] = None,
         title: Optional[str] = None,
         description: Optional[str] = None,
         suggested_queries: Optional[List[str]] = None,
@@ -130,6 +136,8 @@ class JobModel(BaseModel):
             job_type=job_type,
             session_id=session_id,
             namespace=namespace,
+            owner_email=owner_email,
+            project_id=project_id,
             title=title,
             description=description,
             suggested_queries=suggested_queries,
@@ -181,6 +189,7 @@ class JobModel(BaseModel):
             "job_id": self.job_id,
             "job_type": self.job_type.value,
             "session_id": self.session_id,
+            "project_id": self.project_id,
             "state": self.state.value,
             "stage": self.stage.value if self.stage else None,
             "progress": self.percent(),
