@@ -96,6 +96,7 @@ class JobModel(BaseModel):
 
     filename: Optional[str] = None
     file_size_bytes: Optional[int] = None
+    page_count: Optional[int] = None
     temp_path: Optional[str] = None
 
     heartbeat_at: Optional[str] = None
@@ -198,6 +199,7 @@ class JobModel(BaseModel):
             "result_graph_id": self.result_graph_id,
             "file_name": self.filename,
             "file_size": self.file_size_bytes,
+            "page_count": self.page_count,
             "result_summary": self.result_summary,
             "error_code": self.error_code.value if self.error_code else None,
             "error_message": self.error_message,
