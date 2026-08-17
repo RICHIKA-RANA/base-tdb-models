@@ -5,6 +5,7 @@ from uuid import uuid4
 from pydantic import BaseModel
 from smart_slugify import slugify
 
+from talkingdb.models.failure.reason import FailureReason
 from talkingdb.models.job.error import JobErrorCode
 from talkingdb.models.job.stage import JobStage
 from talkingdb.models.job.state import JobState
@@ -93,6 +94,7 @@ class JobModel(BaseModel):
 
     error_code: Optional[JobErrorCode] = None
     error_message: Optional[str] = None
+    failure_reason: Optional[FailureReason] = None
 
     filename: Optional[str] = None
     file_size_bytes: Optional[int] = None
@@ -203,6 +205,9 @@ class JobModel(BaseModel):
             "result_summary": self.result_summary,
             "error_code": self.error_code.value if self.error_code else None,
             "error_message": self.error_message,
+            "failure_reason": (
+                self.failure_reason.value if self.failure_reason else None
+            ),
         }
 
     def to_document_payload(self) -> Dict[str, Any]:
