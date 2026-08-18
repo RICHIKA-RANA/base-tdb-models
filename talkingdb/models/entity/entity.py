@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from dataclasses import dataclass
+from collections import defaultdict
+from dataclasses import dataclass, field
 from typing import Type
 
 import networkx as nx
@@ -13,6 +14,10 @@ from networkx.readwrite import json_graph
 class EntityModel:
     entity_id: str
     graph: nx.MultiDiGraph
+    _surface_text_index: dict = field(
+        default_factory=lambda: defaultdict(set),
+        repr=False,
+    )
 
     @staticmethod
     def make_id(name: str) -> str:
@@ -86,10 +91,18 @@ class EntityModel:
                 **attrs,
             )
 
-        return cls(
+        instance = cls(
             entity_id=entity_id,
             graph=graph,
         )
+
+        for node_id, attrs in graph.nodes(data=True):
+            instance._index_surface_texts(
+                node_id,
+                attrs.get("surface_texts", []),
+            )
+
+        return instance
 
     def save(
         self,
@@ -227,6 +240,31 @@ class EntityModel:
     # Entities
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _normalize_surface_text(surface_text: str) -> str:
+        return surface_text.lower().strip()
+
+    def _index_surface_texts(
+        self,
+        entity_id: str,
+        surface_texts,
+    ) -> None:
+        for surface_text in surface_texts:
+            key = self._normalize_surface_text(surface_text)
+
+            if key:
+                self._surface_text_index[key].add(entity_id)
+
+    def _deindex_surface_texts(
+        self,
+        entity_id: str,
+        surface_texts,
+    ) -> None:
+        for surface_text in surface_texts:
+            key = self._normalize_surface_text(surface_text)
+
+            self._surface_text_index.get(key, set()).discard(entity_id)
+
     def add_entity(
         self,
         entity_id: str,
@@ -241,6 +279,8 @@ class EntityModel:
             label=label,
             surface_texts=list(surface_texts),
         )
+
+        self._index_surface_texts(entity_id, surface_texts)
 
     def has_entity(
         self,
@@ -273,9 +313,32 @@ class EntityModel:
         if not self.graph.has_node(entity_id):
             raise KeyError(entity_id)
 
+        self._deindex_surface_texts(
+            entity_id,
+            self.graph.nodes[entity_id].get("surface_texts", []),
+        )
+
         self.graph.nodes[entity_id][
             "surface_texts"
         ] = list(surface_texts)
+
+        self._index_surface_texts(entity_id, surface_texts)
+
+    def get_entities_by_surface_text(
+        self,
+        surface_text: str,
+    ):
+        """
+        Reverse lookup: entities that were trained with this exact
+        surface text (case-insensitive, whitespace-trimmed).
+        """
+
+        key = self._normalize_surface_text(surface_text)
+
+        return [
+            self.get_entity(entity_id)
+            for entity_id in self._surface_text_index.get(key, set())
+        ]
 
     def iter_entities(self):
         for entity_id, attrs in self.graph.nodes(
