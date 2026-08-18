@@ -86,6 +86,7 @@ class JobModel(BaseModel):
     total_units: int = 0
     done_units: int = 0
     cancel_requested: bool = False
+    cancel_requested_at: Optional[str] = None
 
     result_graph_id: Optional[str] = None
     result_summary: Optional[Dict[str, Any]] = None
