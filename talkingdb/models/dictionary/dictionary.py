@@ -96,6 +96,37 @@ class DictionaryModel:
         return json.loads(row["value"])
 
     # ------------------------------------------------------------------
+    # reset
+    # ------------------------------------------------------------------
+
+    def clear(self) -> None:
+        """Wipe every word/delete/metadata row for this dictionary_id."""
+
+        self.conn.execute(
+            """
+            DELETE FROM words
+            WHERE dictionary_id = ?
+            """,
+            (self.dictionary_id,),
+        )
+
+        self.conn.execute(
+            """
+            DELETE FROM deletes
+            WHERE dictionary_id = ?
+            """,
+            (self.dictionary_id,),
+        )
+
+        self.conn.execute(
+            """
+            DELETE FROM metadata
+            WHERE dictionary_id = ?
+            """,
+            (self.dictionary_id,),
+        )
+
+    # ------------------------------------------------------------------
     # words
     # ------------------------------------------------------------------
 
