@@ -152,6 +152,26 @@ class RegexModel:
             None,
         )
 
+    def remove_pattern(
+        self,
+        rule_name: str,
+        pattern: str,
+    ) -> None:
+        rules = self.rules.get(rule_name)
+
+        if rules is None:
+            raise KeyError(rule_name)
+
+        for i, rule in enumerate(rules):
+            if rule.pattern == pattern:
+                rules.pop(i)
+                break
+        else:
+            raise ValueError(pattern)
+
+        if not rules:
+            self.rules.pop(rule_name, None)
+
     def clear(self) -> None:
         self.rules.clear()
 
