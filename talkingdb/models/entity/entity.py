@@ -324,6 +324,30 @@ class EntityModel:
 
         self._index_surface_texts(entity_id, surface_texts)
 
+    def update_label(
+        self,
+        entity_id: str,
+        label: str,
+    ) -> None:
+        if not self.graph.has_node(entity_id):
+            raise KeyError(entity_id)
+
+        self.graph.nodes[entity_id]["label"] = label
+
+    def remove_entity(
+        self,
+        entity_id: str,
+    ) -> None:
+        if not self.graph.has_node(entity_id):
+            raise KeyError(entity_id)
+
+        self._deindex_surface_texts(
+            entity_id,
+            self.graph.nodes[entity_id].get("surface_texts", []),
+        )
+
+        self.graph.remove_node(entity_id)
+
     def get_entities_by_surface_text(
         self,
         surface_text: str,
@@ -406,6 +430,17 @@ class EntityModel:
             return result
 
         return None
+
+    def remove_fact(
+        self,
+        fact_id: str,
+    ) -> None:
+        for source, target, key in self.graph.edges(keys=True):
+            if key == fact_id:
+                self.graph.remove_edge(source, target, key=key)
+                return
+
+        raise KeyError(fact_id)
 
     def iter_facts(self):
         for source, target, key, attrs in self.graph.edges(
