@@ -101,6 +101,8 @@ class JobModel(BaseModel):
     file_size_bytes: Optional[int] = None
     page_count: Optional[int] = None
     temp_path: Optional[str] = None
+    metadata_json: Optional[str] = None
+    retry_count: int = 0
 
     heartbeat_at: Optional[str] = None
     progress_at: Optional[str] = None
