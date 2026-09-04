@@ -388,13 +388,13 @@ class TableModel:
         return HeaderOrientation.BOTH
 
     def header_row_count(self) -> int:
+        if not self.rows or not self.rows[0]:
+            return 1
         if self.header_orientation() not in (
             HeaderOrientation.COLUMN,
             HeaderOrientation.BOTH,
         ):
             return 0
-        if not self.rows or not self.rows[0]:
-            return 1
         return max((cell.rowspan for cell in self.rows[0] if cell), default=1)
 
     def column_headers(self) -> dict:
