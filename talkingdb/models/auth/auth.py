@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, EmailStr, field_validator
 import re
 
@@ -45,3 +46,10 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     message: str
     access_token: str | None = None
+
+class ServiceApiKeyRequest(BaseModel):
+    email: EmailStr
+
+class ServiceApiKeyResponse(BaseModel):
+    api_key: str
+    created_at: datetime

@@ -85,3 +85,38 @@ class APIKeyModel:
             return None
 
         return row[0]
+
+    @classmethod
+    def find_by_user_email(
+        cls: Type["APIKeyModel"],
+        conn: sqlite3.Connection,
+        user_email: str,
+    ) -> Optional["APIKeyModel"]:
+
+        row = conn.execute(
+            """
+            SELECT api_key, user_email, created_at
+            FROM api_keys
+            WHERE user_email = ?
+            ORDER BY created_at ASC
+            LIMIT 1
+            """,
+            (user_email,),
+        ).fetchone()
+
+        if not row:
+            return None
+
+        return cls(
+            api_key=row[0],
+            user_email=row[1],
+            created_at=datetime.fromisoformat(row[2]),
+        )
+
+    @classmethod
+    def get_or_create(
+        cls: Type["APIKeyModel"],
+        conn: sqlite3.Connection,
+        user_email: str,
+    ) -> "APIKeyModel":
+        return cls.find_by_user_email(conn, user_email) or cls.create(conn, user_email)
